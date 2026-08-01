@@ -19,3 +19,4 @@ class LookupsResponse(BaseModel):
     hakeem_gender_preference: list[LookupItem]
     health_interest: list[LookupItem]
     health_flag: list[LookupItem]
+    post_categories: list[LookupItem]

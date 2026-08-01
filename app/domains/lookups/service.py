@@ -69,6 +69,7 @@ class LookupService:
     async def get_all(self) -> LookupsResponse:
         interests = await self.repo.list_by_type("health_interest")
         flags = await self.repo.list_by_type("health_flag")
+        post_categories = await self.repo.list_by_type("post_category")
 
         return LookupsResponse(
             gender=[LookupItem(key=g.value, label=g.value) for g in Gender],
@@ -117,5 +118,14 @@ class LookupService:
                     icon=row.icon,
                 )
                 for row in flags
+            ],
+            post_categories=[
+                LookupItem(
+                    key=row.key,
+                    label=row.label,
+                    description=row.description,
+                    icon=row.icon,
+                )
+                for row in post_categories
             ],
         )

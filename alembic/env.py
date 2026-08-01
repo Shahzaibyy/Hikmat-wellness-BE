@@ -8,6 +8,15 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
 from app.db.base import Base
+from app.domains.chat.models import (  # noqa: F401
+    Conversation,
+    ConversationParticipant,
+    Message,
+    MessageHiddenForUser,
+    MessageReaction,
+)
+from app.domains.community.models import Follow, Post, PostComment, PostLike  # noqa: F401
+from app.domains.connections.models import Block, Connection  # noqa: F401
 from app.domains.lookups.models import LookupOption  # noqa: F401
 from app.domains.users.models import User  # noqa: F401
 
