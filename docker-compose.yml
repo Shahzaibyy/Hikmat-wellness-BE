@@ -36,6 +36,9 @@ services:
     container_name: hikmat_api
     restart: unless-stopped
     env_file: .env
+    environment:
+      # appuser cannot mkdir under the bind-mounted /app — use /tmp in containers.
+      PRIVATE_UPLOAD_DIR: /tmp/hikmat_private_uploads
     ports:
       - "8000:8000"
     depends_on:

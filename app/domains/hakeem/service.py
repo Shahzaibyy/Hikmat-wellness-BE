@@ -42,7 +42,14 @@ class HakeemService:
         self.users = UserService(session)
         self.lookups = LookupService(session)
         self.auth = AuthService(session)
-        self.storage = get_object_storage()
+        self._storage = None
+
+    @property
+    def storage(self):
+        # Lazy: dashboard/profile must not require a writable upload dir.
+        if self._storage is None:
+            self._storage = get_object_storage()
+        return self._storage
 
     async def apply(self, payload: HakeemSignupRequest) -> TokenResponse:
         await self._validate_application(payload)

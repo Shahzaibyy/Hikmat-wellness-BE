@@ -59,7 +59,16 @@ class ObjectStorage:
 class LocalPrivateStorage(ObjectStorage):
     def __init__(self, root: Path) -> None:
         self.root = root
-        self.root.mkdir(parents=True, exist_ok=True)
+        # Do not mkdir here — container cwd may be read-only. Create on first write.
+
+    def _ensure_root(self) -> None:
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise RuntimeError(
+                f"Cannot create private upload directory {self.root!s}: {exc}. "
+                "Set PRIVATE_UPLOAD_DIR to a writable path (e.g. /tmp/private_uploads)."
+            ) from exc
 
     def upload_private(
         self,
@@ -69,6 +78,7 @@ class LocalPrivateStorage(ObjectStorage):
         content_type: str,
         prefix: str = "hakeem-verification",
     ) -> str:
+        self._ensure_root()
         ext = ALLOWED_CONTENT_TYPES.get(content_type)
         if ext is None:
             raise ValueError(f"Unsupported content type: {content_type}")
