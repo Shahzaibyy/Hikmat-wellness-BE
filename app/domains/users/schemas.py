@@ -30,6 +30,9 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    # Populated for role=hakeem from HakeemProfile (null for patients/admins).
+    is_verified_hakeem: bool | None = None
+    verification_status: str | None = None
 
 
 class OnboardingUpdateRequest(BaseModel):

@@ -33,7 +33,7 @@ class AuthService:
             hashed_password=hash_password(payload.password),
             full_name=payload.full_name,
         )
-        return self._issue_tokens(user)
+        return await self._issue_tokens(user)
 
     async def login(self, payload: LoginRequest) -> TokenResponse:
         user = await self.users.get_by_email(str(payload.email))
@@ -41,7 +41,7 @@ class AuthService:
             raise InvalidCredentialsError()
         if not user.is_active:
             raise InvalidCredentialsError()
-        return self._issue_tokens(user)
+        return await self._issue_tokens(user)
 
     async def refresh(self, refresh_token: str) -> TokenResponse:
         payload = safe_decode_token(refresh_token)
@@ -56,11 +56,11 @@ class AuthService:
         user = await self.users.get_by_id(user_id)
         if not user.is_active:
             raise InvalidTokenError("User is inactive.")
-        return self._issue_tokens(user)
+        return await self._issue_tokens(user)
 
-    def _issue_tokens(self, user) -> TokenResponse:
+    async def _issue_tokens(self, user) -> TokenResponse:
         return TokenResponse(
             access_token=create_access_token(subject=user.id),
             refresh_token=create_refresh_token(subject=user.id),
-            user=UserResponse.model_validate(user),
+            user=await self.users.to_response(user),
         )

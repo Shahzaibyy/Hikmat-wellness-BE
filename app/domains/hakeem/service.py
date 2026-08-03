@@ -82,7 +82,7 @@ class HakeemService:
             is_verified_hakeem=False,
         )
         await self.repo.create(profile)
-        return self.auth._issue_tokens(user)
+        return await self.auth._issue_tokens(user)
 
     async def get_public_profile(self, hakeem_user_id: UUID) -> HakeemPublicProfileResponse:
         profile = await self.repo.get_by_user_id(hakeem_user_id)

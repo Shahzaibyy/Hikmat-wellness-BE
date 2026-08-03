@@ -252,25 +252,27 @@ async def _upsert_verified_hakeem(
     return user, profile, action
 
 
-def _print_summary(rows: list[tuple[VerifiedHakeemSpec, User]]) -> None:
+def _print_summary(rows: list[tuple[VerifiedHakeemSpec, User, HakeemProfile]]) -> None:
     print()
     print("=" * 100)
     print("VERIFIED HAKEEM SEED — password for all:", SEED_PASSWORD)
     print("=" * 100)
     print(
-        f"{'NAME':<28} {'EMAIL':<30} {'CITY':<12} {'YEARS':>5} {'FEE':>6}  SPECIALIZATION"
+        f"{'NAME':<28} {'EMAIL':<30} {'STATUS':<12} {'VERIFIED':<8} CITY"
     )
     print("-" * 100)
-    for spec, user in rows:
+    for spec, user, profile in rows:
         print(
-            f"{spec.full_name:<28} {spec.email:<30} {spec.city:<12} "
-            f"{spec.years:>5} {int(spec.fee):>6}  {spec.specialization}"
+            f"{spec.full_name:<28} {spec.email:<30} "
+            f"{profile.verification_status:<12} "
+            f"{str(profile.is_verified_hakeem):<8} {spec.city}"
         )
         print(f"  user_id={user.id}")
     print("=" * 100)
     print(
-        "All five are APPROVED (is_verified_hakeem=true). "
-        "GET /api/v1/hakeems/{user_id}/profile should succeed without admin action."
+        "All five are APPROVED (verification_status=approved, is_verified_hakeem=true).\n"
+        "Login /auth/login and /auth/me now return is_verified_hakeem + verification_status.\n"
+        "GET /api/v1/hakeems/{user_id}/profile and GET /api/v1/hakeem/me/profile also work."
     )
     print()
 
@@ -285,14 +287,34 @@ async def run(*, reset: bool) -> None:
                     f"(emails: {', '.join(sorted(SEED_EMAILS))})"
                 )
 
-            rows: list[tuple[VerifiedHakeemSpec, User]] = []
+            rows: list[tuple[VerifiedHakeemSpec, User, HakeemProfile]] = []
             for spec in SPECS:
-                user, _profile, action = await _upsert_verified_hakeem(session, spec)
-                print(f"{action}: {spec.email} ({spec.full_name})")
-                rows.append((spec, user))
+                user, profile, action = await _upsert_verified_hakeem(session, spec)
+                print(
+                    f"{action}: {spec.email} "
+                    f"(status={profile.verification_status}, "
+                    f"verified={profile.is_verified_hakeem})"
+                )
+                rows.append((spec, user, profile))
 
             await session.commit()
-            _print_summary(rows)
+
+            # Re-read after commit so the summary reflects persisted DB state.
+            verified_rows: list[tuple[VerifiedHakeemSpec, User, HakeemProfile]] = []
+            for spec, user, _ in rows:
+                refreshed_user = await UserService(session).get_by_id(user.id)
+                refreshed_profile = await HakeemService(session).repo.get_by_user_id(
+                    user.id
+                )
+                assert refreshed_profile is not None
+                assert refreshed_profile.is_verified_hakeem is True
+                assert (
+                    refreshed_profile.verification_status
+                    == HakeemVerificationStatus.APPROVED.value
+                )
+                verified_rows.append((spec, refreshed_user, refreshed_profile))
+
+            _print_summary(verified_rows)
         except Exception:
             await session.rollback()
             raise

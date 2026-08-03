@@ -12,15 +12,35 @@ from app.domains.users.models import (
     MizajType,
     PreferredLanguage,
     User,
+    UserRole,
 )
 from app.domains.users.repository import UserRepository
-from app.domains.users.schemas import OnboardingUpdateRequest
+from app.domains.users.schemas import OnboardingUpdateRequest, UserResponse
 
 
 class UserService:
     def __init__(self, session: AsyncSession) -> None:
         self.repo = UserRepository(session)
         self.lookups = LookupService(session)
+
+    async def to_response(self, user: User) -> UserResponse:
+        """Build UserResponse; for hakeems include live verification fields."""
+        data = UserResponse.model_validate(user)
+        if user.role != UserRole.HAKEEM.value:
+            return data
+        from app.domains.hakeem.repository import HakeemRepository
+
+        profile = await HakeemRepository(self.repo.session).get_by_user_id(user.id)
+        if profile is None:
+            return data.model_copy(
+                update={"is_verified_hakeem": False, "verification_status": "pending"}
+            )
+        return data.model_copy(
+            update={
+                "is_verified_hakeem": profile.is_verified_hakeem,
+                "verification_status": profile.verification_status,
+            }
+        )
 
     async def get_by_id(self, user_id: UUID) -> User:
         user = await self.repo.get_by_id(user_id)
