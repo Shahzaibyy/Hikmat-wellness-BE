@@ -63,11 +63,16 @@ type UserResponse = {
   role: "patient" | "hakeem" | "admin";
   avatar_url: string | null;
   city: string | null;
+  // When role === "hakeem" these are filled from HakeemProfile:
+  is_verified_hakeem: boolean | null;   // true after admin approval (seed accounts = true)
+  verification_status: string | null;   // pending | under_review | needs_more_info | approved | rejected
   // …onboarding fields (patients mainly)
   onboarding_completed: boolean;
   // …
 };
 ```
+
+**Frontend gate:** treat a hakeem as verified when `user.is_verified_hakeem === true` **or** `user.verification_status === "approved"` (same meaning). Do not invent a `"done"` status — the API value is `"approved"`.
 
 Store `access_token` + `refresh_token` securely (e.g. `expo-secure-store`). Attach access token on every authenticated request. On 401, call refresh then retry.
 

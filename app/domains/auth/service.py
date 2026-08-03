@@ -15,7 +15,6 @@ from app.domains.auth.exceptions import (
     UserAlreadyExistsError,
 )
 from app.domains.auth.schemas import LoginRequest, SignupRequest, TokenResponse
-from app.domains.users.schemas import UserResponse
 from app.domains.users.service import UserService
 
 
