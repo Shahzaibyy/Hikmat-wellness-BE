@@ -37,11 +37,15 @@ class UserService:
         email: str,
         hashed_password: str,
         full_name: str | None = None,
+        role: str | None = None,
+        city: str | None = None,
     ) -> User:
         return await self.repo.create(
             email=email,
             hashed_password=hashed_password,
             full_name=full_name,
+            role=role,
+            city=city,
         )
 
     async def update_onboarding(self, user_id: UUID, payload: OnboardingUpdateRequest) -> User:

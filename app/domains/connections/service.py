@@ -122,6 +122,49 @@ class ConnectionsService:
         )
         return [await self._to_connection_response(r) for r in rows]
 
+    async def list_pending_incoming(self, recipient_id: UUID) -> list[ConnectionResponse]:
+        rows = await self.repo.list_for_user(
+            recipient_id, status=ConnectionStatus.PENDING.value
+        )
+        incoming = [r for r in rows if r.recipient_id == recipient_id]
+        return [await self._to_connection_response(r) for r in incoming]
+
+    async def compute_response_rate(
+        self, recipient_id: UUID, *, window_hours: int = 24
+    ) -> float:
+        """% of incoming requests that were accepted/rejected within `window_hours`."""
+        from datetime import timedelta
+
+        rows = await self.repo.list_for_user(recipient_id)
+        incoming = [r for r in rows if r.recipient_id == recipient_id]
+        # Count only requests that have been responded to (or are still pending past window).
+        decided = [
+            r
+            for r in incoming
+            if r.status
+            in {
+                ConnectionStatus.ACCEPTED.value,
+                ConnectionStatus.REJECTED.value,
+            }
+            and r.responded_at is not None
+        ]
+        if not decided:
+            # No history yet — report 100 so empty dashboards don't look broken.
+            return 100.0 if not incoming else 0.0
+
+        within = 0
+        for r in decided:
+            delta = r.responded_at - r.created_at
+            if delta <= timedelta(hours=window_hours):
+                within += 1
+        return round(100.0 * within / len(decided), 1)
+
+    async def count_accepted_for_user(self, user_id: UUID) -> int:
+        rows = await self.repo.list_for_user(
+            user_id, status=ConnectionStatus.ACCEPTED.value
+        )
+        return len(rows)
+
     async def block(
         self, blocker: User, payload: BlockCreateRequest
     ) -> BlockResponse:

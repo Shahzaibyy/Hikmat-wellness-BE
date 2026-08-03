@@ -10,6 +10,7 @@ class UserResponse(BaseModel):
 
     id: UUID
     email: EmailStr
+    role: str
     full_name: str | None = None
     gender: str | None = None
     date_of_birth: date | None = None

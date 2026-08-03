@@ -26,5 +26,13 @@ class Settings(BaseSettings):
     # Firebase
     FIREBASE_CREDENTIALS_PATH: str = "./firebase-service-account.json"
 
+    # Private document storage (verification docs). Leave S3_BUCKET empty for local disk.
+    PRIVATE_UPLOAD_DIR: str = "./private_uploads"
+    S3_BUCKET: str = ""
+    AWS_REGION: str = "ap-south-1"
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    S3_ENDPOINT_URL: str = ""  # optional (MinIO / custom)
+
 
 settings = Settings()

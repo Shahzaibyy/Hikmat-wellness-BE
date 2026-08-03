@@ -26,11 +26,13 @@ from app.domains.community.schemas import (
     PostResponse,
     PostTypeEnum,
 )
+from app.domains.hakeem.service import HakeemService
 from app.domains.lookups.models import LookupOption
 from app.domains.users.exceptions import UserNotFoundError
 from app.domains.users.models import User
 from app.domains.users.service import UserService
 from app.utils.pagination import CursorPage, build_page, decode_cursor
+
 
 # Stop-words ignored when matching post category labels to onboarding health interests.
 _STOP = frozenset({"and", "the", "of", "a", "an", "&"})
@@ -63,6 +65,7 @@ class CommunityService:
     def __init__(self, session: AsyncSession) -> None:
         self.repo = CommunityRepository(session)
         self.users = UserService(session)
+        self.hakeem = HakeemService(session)
 
     async def create_post(self, author: User, payload: PostCreateRequest) -> PostResponse:
         category = await self.repo.get_category_by_key(payload.category)
@@ -82,14 +85,20 @@ class CommunityService:
         post.category = category
         post.author = author
         created = await self.repo.create_post(post)
-        return self._to_post_response(created, liked_by_me=False)
+        verified = await self.hakeem.verified_user_ids([author.id])
+        return self._to_post_response(
+            created, liked_by_me=False, verified_ids=verified
+        )
 
     async def get_post(self, post_id: UUID, viewer: User) -> PostResponse:
         post = await self.repo.get_post_by_id(post_id)
         if post is None:
             raise PostNotFoundError()
         liked = await self.repo.list_liked_post_ids(user_id=viewer.id, post_ids=[post.id])
-        return self._to_post_response(post, liked_by_me=post.id in liked)
+        verified = await self.hakeem.verified_user_ids([post.author_id])
+        return self._to_post_response(
+            post, liked_by_me=post.id in liked, verified_ids=verified
+        )
 
     async def get_feed(
         self,
@@ -160,9 +169,15 @@ class CommunityService:
             user_id=viewer.id,
             post_ids=[p.id for p in page.items],
         )
+        verified = await self.hakeem.verified_user_ids(
+            [p.author_id for p in page.items]
+        )
         return CursorPage(
             items=[
-                self._to_post_response(p, liked_by_me=p.id in liked_ids) for p in page.items
+                self._to_post_response(
+                    p, liked_by_me=p.id in liked_ids, verified_ids=verified
+                )
+                for p in page.items
             ],
             next_cursor=page.next_cursor,
             has_more=page.has_more,
@@ -175,7 +190,10 @@ class CommunityService:
         await self.repo.like_post(post_id=post_id, user_id=user.id)
         refreshed = await self.repo.get_post_by_id(post_id)
         assert refreshed is not None
-        return self._to_post_response(refreshed, liked_by_me=True)
+        verified = await self.hakeem.verified_user_ids([refreshed.author_id])
+        return self._to_post_response(
+            refreshed, liked_by_me=True, verified_ids=verified
+        )
 
     async def unlike_post(self, post_id: UUID, user: User) -> PostResponse:
         post = await self.repo.get_post_by_id(post_id)
@@ -185,7 +203,10 @@ class CommunityService:
         refreshed = await self.repo.get_post_by_id(post_id)
         assert refreshed is not None
         liked = await self.repo.list_liked_post_ids(user_id=user.id, post_ids=[post_id])
-        return self._to_post_response(refreshed, liked_by_me=post_id in liked)
+        verified = await self.hakeem.verified_user_ids([refreshed.author_id])
+        return self._to_post_response(
+            refreshed, liked_by_me=post_id in liked, verified_ids=verified
+        )
 
     async def add_comment(
         self, post_id: UUID, author: User, payload: CommentCreateRequest
@@ -200,7 +221,8 @@ class CommunityService:
         )
         comment.author = author
         created = await self.repo.create_comment(comment)
-        return self._to_comment_response(created)
+        verified = await self.hakeem.verified_user_ids([author.id])
+        return self._to_comment_response(created, verified_ids=verified)
 
     async def list_comments(
         self,
@@ -228,8 +250,13 @@ class CommunityService:
                 "id": str(c.id),
             },
         )
+        verified = await self.hakeem.verified_user_ids(
+            [c.author_id for c in page.items]
+        )
         return CursorPage(
-            items=[self._to_comment_response(c) for c in page.items],
+            items=[
+                self._to_comment_response(c, verified_ids=verified) for c in page.items
+            ],
             next_cursor=page.next_cursor,
             has_more=page.has_more,
         )
@@ -263,7 +290,14 @@ class CommunityService:
         if not removed:
             raise NotFollowingError()
 
-    def _to_post_response(self, post: Post, *, liked_by_me: bool) -> PostResponse:
+    def _to_post_response(
+        self,
+        post: Post,
+        *,
+        liked_by_me: bool,
+        verified_ids: set[UUID] | None = None,
+    ) -> PostResponse:
+        verified = verified_ids or set()
         return PostResponse(
             id=post.id,
             post_type=PostTypeEnum(post.post_type),
@@ -277,13 +311,19 @@ class CommunityService:
                 id=post.author.id,
                 full_name=post.author.full_name,
                 avatar_url=post.author.avatar_url,
-                is_verified_hakeem=False,
+                is_verified_hakeem=post.author.id in verified,
             ),
             created_at=post.created_at,
             updated_at=post.updated_at,
         )
 
-    def _to_comment_response(self, comment: PostComment) -> CommentResponse:
+    def _to_comment_response(
+        self,
+        comment: PostComment,
+        *,
+        verified_ids: set[UUID] | None = None,
+    ) -> CommentResponse:
+        verified = verified_ids or set()
         return CommentResponse(
             id=comment.id,
             post_id=comment.post_id,
@@ -292,7 +332,7 @@ class CommunityService:
                 id=comment.author.id,
                 full_name=comment.author.full_name,
                 avatar_url=comment.author.avatar_url,
-                is_verified_hakeem=False,
+                is_verified_hakeem=comment.author.id in verified,
             ),
             created_at=comment.created_at,
         )

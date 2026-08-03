@@ -50,6 +50,12 @@ class HakeemGenderPreference(str, enum.Enum):
     FEMALE = "female"
 
 
+class UserRole(str, enum.Enum):
+    PATIENT = "patient"
+    HAKEEM = "hakeem"
+    ADMIN = "admin"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -58,6 +64,9 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(
+        String(20), default=UserRole.PATIENT.value, server_default="patient", nullable=False
+    )
 
     full_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     gender: Mapped[str | None] = mapped_column(String(40), nullable=True)

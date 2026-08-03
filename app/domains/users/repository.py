@@ -28,11 +28,17 @@ class UserRepository:
         email: str,
         hashed_password: str,
         full_name: str | None = None,
+        role: str | None = None,
+        city: str | None = None,
     ) -> User:
+        from app.domains.users.models import UserRole
+
         user = User(
             email=email.lower(),
             hashed_password=hashed_password,
             full_name=full_name,
+            role=role or UserRole.PATIENT.value,
+            city=city,
         )
         self.session.add(user)
         await self.session.flush()

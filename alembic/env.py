@@ -17,7 +17,14 @@ from app.domains.chat.models import (  # noqa: F401
 )
 from app.domains.community.models import Follow, Post, PostComment, PostLike  # noqa: F401
 from app.domains.connections.models import Block, Connection  # noqa: F401
+from app.domains.booking.models import Booking  # noqa: F401
+from app.domains.hakeem.models import (  # noqa: F401
+    HakeemDateAvailability,
+    HakeemProfile,
+    HakeemWeeklyAvailability,
+)
 from app.domains.lookups.models import LookupOption  # noqa: F401
+from app.domains.payments.models import PayoutBatch, Transaction  # noqa: F401
 from app.domains.users.models import User  # noqa: F401
 
 config = context.config
